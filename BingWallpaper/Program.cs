@@ -5,9 +5,12 @@ using System.IO;
 using System.Timers;
 using System.Runtime.InteropServices;
 
+using System.Windows.Forms;
+using System.Drawing;
+
 namespace BingWallpaper
 {
-    class Program
+    class Program : Form
     {
         #region unsafe
         [DllImport("kernel32.dll")]
@@ -19,9 +22,13 @@ namespace BingWallpaper
         const int SW_HIDE = 0;
         const int SW_SHOW = 5;
         #endregion
-
-        static void Main(string[] args)
+        
+        [STAThread]
+        static void Main()
         {
+            Application.Run(new Program());
+
+
             // Hide console
             var handle = GetConsoleWindow();
             ShowWindow(handle, SW_HIDE);
@@ -31,18 +38,63 @@ namespace BingWallpaper
             Log.Print("setting program to run on startup");
             SetStartup();
 
-            Timer timer = new Timer();
-            timer.Interval = 1000 * 60 * 60 * 24; // 24 hours
+            System.Timers.Timer timer = new System.Timers.Timer();
+            timer.Interval = 1000 * 60 * 60 * 24; // 1000ms/sec -> 60sec/min -> 60min/hr -> 24hr/day
             timer.AutoReset = true;
             timer.Enabled = true;
             timer.Elapsed += (s, e) => SetWallpaper(provider);
             timer.Start();
-            
+
             // Set wallpaper on first run
             SetWallpaper(provider);
 
             // Keep process alive
             Console.Read();
+        }
+
+        private NotifyIcon trayIcon;
+        private ContextMenu trayMenu;
+
+        public Program()
+        {
+            // Create a simple tray menu with only one item.
+            trayMenu = new ContextMenu();
+            trayMenu.MenuItems.Add("Exit", OnExit);
+
+            // Create a tray icon. In this example we use a
+            // standard system icon for simplicity, but you
+            // can of course use your own custom icon too.
+            trayIcon = new NotifyIcon();
+            trayIcon.Text = "BingWallpaper";
+            trayIcon.Icon = new Icon(SystemIcons.Application, 40, 40);
+
+            // Add menu to tray icon and show it.
+            trayIcon.ContextMenu = trayMenu;
+            trayIcon.Visible = true;
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            Visible = false; // Hide form window.
+            ShowInTaskbar = false; // Remove from taskbar.
+
+            base.OnLoad(e);
+        }
+
+        private void OnExit(object sender, EventArgs e)
+        {
+            Application.Exit();
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            if (isDisposing)
+            {
+                // Release the icon resource.
+                trayIcon.Dispose();
+            }
+
+            base.Dispose(isDisposing);
         }
 
         static void SetWallpaper(IImageProvider provider)
